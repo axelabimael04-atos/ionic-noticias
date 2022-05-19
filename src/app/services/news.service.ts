@@ -1,32 +1,25 @@
-/* eslint-disable curly */
-/* eslint-disable object-shorthand */
-/* eslint-disable @typescript-eslint/member-ordering */
-/* eslint-disable max-len */
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { BehaviorSubject, Observable, of } from 'rxjs';
+import { BehaviorSubject, from, Observable, of } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { NewsResponse } from '../interfaces';
 import { Article, ArticlesByCategoryAndPage } from '../interfaces/index';
-import { map } from 'rxjs/operators';
-
-
-
+import { map, shareReplay, switchMap, take, tap } from 'rxjs/operators';
+// observable, subject, behaviorsubject << 
+// , 
 @Injectable({
   providedIn: 'root'
 })
 export class NewsService {
 
-  readonly apiKey =  environment.apiKey;
+  readonly apiKey = environment.apiKey;
   readonly apiUrl = 'https://newsapi.org/v2';
-
-  private articlesByCategoryAndPage: ArticlesByCategoryAndPage = {};
 
   private articlesByCategoryAndPage$: BehaviorSubject<ArticlesByCategoryAndPage> = new BehaviorSubject<ArticlesByCategoryAndPage>({});
 
-  constructor(private http: HttpClient) { }
+  constructor(private http: HttpClient) {}
 
-  private executeQuery<T>(endpoint: string){
+  private executeQuery<T>(endpoint: string) {
     return this.http.get<T>(`${this.apiUrl}${endpoint}`, {
       params: {
         apiKey: this.apiKey,
@@ -35,20 +28,19 @@ export class NewsService {
     });
   }
 
-  getTopHeadlines(): Observable<Article[]>{
+  getTopHeadlines(): Observable<Article[]> {
     return this.executeQuery<NewsResponse>(`/top-headlines?category=business`).pipe(
-      map(resp=> resp.articles)
+      map(resp => resp.articles)
     );
   }
 
-  getTopHeadlinesByCategory(category: string, loadMore: boolean = false): Observable<Article[]>{
+  getTopHeadlinesByCategory(category: string, loadMore: boolean = false): Observable<Article[]> {
 
-    if(loadMore){
+    if (loadMore) {
       return this.getArticlesByCategory(category);
     }
 
-    if(this.articlesByCategoryAndPage[category]){
-      // return of(this.articlesByCategoryAndPage[category].articles);
+    if (this.articlesByCategoryAndPage$.getValue()[category]) {
       return this.articlesByCategoryAndPage$.asObservable().pipe(
         map(resp => resp[category].articles)
       );
@@ -58,30 +50,40 @@ export class NewsService {
 
   }
 
-  private getArticlesByCategory(category: string): Observable<Article[]>{
-    if(Object.keys(this.articlesByCategoryAndPage).includes(category)){
-      // this.articlesByCategoryAndPage[category].page +=1;
-    } else {
-      this.articlesByCategoryAndPage[category] = {
-        page: 0,
-        articles: []
-      };
+  private getArticlesByCategory(category: string): Observable<Article[]> {
+    const categoryExist: boolean = Object.keys(this.articlesByCategoryAndPage$.getValue()).includes(category);
+    if (!categoryExist) {
+      const currentState: ArticlesByCategoryAndPage = this.articlesByCategoryAndPage$.getValue();
+      this.articlesByCategoryAndPage$.next({
+        ...currentState,
+        [category]: {
+          page: 0,
+          articles: []
+        }
+      });
     }
-
-    const page = this.articlesByCategoryAndPage[category].page + 1;
-
-    return this.executeQuery<NewsResponse>(`/top-headlines?category=${category}&page=${page}`)
-    .pipe(
-      map(resp => {
-        if(resp.articles.length === 0) return [];
-        this.articlesByCategoryAndPage[category] = {
-          page: page,
-          articles: [...this.articlesByCategoryAndPage[category].articles, ...resp.articles]
-        };
-        return this.articlesByCategoryAndPage[category].articles;
-      })
+    const articlesByCategory$ = this.articlesByCategoryAndPage$.asObservable();
+    return articlesByCategory$.pipe(
+      take(1),
+      switchMap((articlesByCategory) => {
+        const newPage: number = articlesByCategory[category].page + 1;
+        return this.executeQuery<NewsResponse>(`/top-headlines?category=${category}&page=${newPage}`).pipe(
+          map((response) => {
+            if (response.articles.length === 0) return [];
+            const newArticlesState = {
+              ...articlesByCategory,
+              [category]: {
+                page: newPage,
+                articles: [...articlesByCategory[category].articles, ...response.articles]
+              }
+            };
+            console.log(newArticlesState);
+            this.articlesByCategoryAndPage$.next(newArticlesState)
+            return this.articlesByCategoryAndPage$.getValue()[category].articles;
+          })
+        )
+      }),
     );
-
   }
 
 

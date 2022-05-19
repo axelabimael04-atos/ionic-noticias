@@ -1,4 +1,5 @@
 import { Component } from '@angular/core';
+import { ActivatedRoute, Router, Routes } from '@angular/router';
 
 @Component({
   selector: 'app-tabs',
@@ -6,7 +7,11 @@ import { Component } from '@angular/core';
   styleUrls: ['tabs.page.scss']
 })
 export class TabsPage {
-
-  constructor() {}
+  public readonly routes: Routes;
+  constructor(
+    private activatedRoute: ActivatedRoute
+  ) {
+    this.routes = [...this.activatedRoute.routeConfig.children].filter((r) => r.path !== '');
+  }
 
 }
