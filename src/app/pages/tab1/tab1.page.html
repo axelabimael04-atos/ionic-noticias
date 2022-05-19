@@ -1,0 +1,27 @@
+<ion-header [translucent]="true" mode="ios" class="ion-no-border">
+  <ion-toolbar>
+    <ion-title>
+      Axel's News
+    </ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true">
+  <ion-header collapse="condense" mode="ios" class="ion-no-border">
+    <ion-toolbar>
+      <ion-title size="large">Axel's News</ion-title>
+    </ion-toolbar>
+  </ion-header>
+
+  <app-articles
+  [articles]="articles$ | async"
+  ></app-articles>
+
+  <!-- <ion-list *ngIf="articles$ | async as articles">
+    <ion-item *ngFor="let article of articles">{{article.title}}</ion-item>
+  </ion-list> -->
+
+  
+
+
+</ion-content>
